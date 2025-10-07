@@ -1,0 +1,39 @@
+[project]
+name = "musi-labs-session1"
+version = "1.0.0"
+description = "11765 Mobile Robot Navigation - Session 1: Introduction and Basics"
+authors = [
+    {name = "Eric Guerrero"}
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.23.3",
+    "scipy>=1.9.1",
+    "pandas>=1.4.4",
+    "matplotlib>=3.6.0",
+    "plotly>=5.11.0",
+    "seaborn>=0.12.0",
+    "marimo>=0.16.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.2",
+    "ruff>=0.13.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["musi_labs"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+select = ["E", "F", "W", "I", "N", "UP", "B", "C90"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
