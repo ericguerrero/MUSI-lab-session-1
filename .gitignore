@@ -44,8 +44,8 @@ venv.bak/
 .ipynb_checkpoints/
 *.ipynb
 
-# Data (keep Dataset1, exclude others if added)
-data/MRCLAM_Dataset[2-9]/
+# Data
+# data/MRCLAM_Dataset[2-9]/  # Uncomment to exclude datasets 2-9
 data/*.zip
 data/downloads/
 
