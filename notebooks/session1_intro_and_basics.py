@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.16.4"
+__generated_with = "0.16.5"
 app = marimo.App(width="full")
 
 
@@ -87,102 +87,11 @@ def _(os, pd, sys):
     from musi_labs.data.reader import Reader
     from musi_labs.localization.dead_reckoning import DeadReckoning
     from musi_labs.localization.EKF import ExtendedKalmanFilter
+    from musi_labs.utils.metrics import compute_ate, compute_dataset_metrics
     from musi_labs.visualization import marimo_helpers as mh
-    return DeadReckoning, ExtendedKalmanFilter, Reader, mh
+    return DeadReckoning, ExtendedKalmanFilter, Reader, compute_ate, compute_dataset_metrics, mh
 
 
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""### Helper Functions""")
-    return
-
-
-@app.cell
-def _(np, pd):
-    def compute_ate(estimated_states, groundtruth_data):
-        """
-        Compute Absolute Trajectory Error (ATE) using RMSE.
-
-        Args:
-            estimated_states: Estimated trajectory (numpy array or DataFrame) [n_frames, >=3]
-                             with columns [Time, x, y, ...]
-            groundtruth_data: Ground truth trajectory (numpy array) [n_frames, >=3]
-                            with columns [Time, x, y, ...]
-
-        Returns:
-            float: RMSE of position errors in meters
-        """
-        # Convert DataFrame to numpy if needed (after build_dataframes() is called)
-        if isinstance(estimated_states, pd.DataFrame):
-            estimated_states = estimated_states.values
-
-        # Align lengths
-        min_len = min(len(estimated_states), len(groundtruth_data))
-        est = estimated_states[:min_len, 1:3]  # x, y columns
-        gt = groundtruth_data[:min_len, 1:3]
-
-        # Compute Euclidean errors
-        errors = np.linalg.norm(est - gt, axis=1)
-
-        # Return RMSE
-        ate = np.sqrt(np.mean(errors**2))
-        return ate
-
-    def compute_dataset_metrics(reader):
-        """
-        Extract key metrics from a dataset.
-
-        Args:
-            reader: Reader object with loaded MRCLAM dataset
-
-        Returns:
-            dict: Metrics including path_length, duration, n_landmarks,
-                  distance, m_density
-        """
-        gt = reader.groundtruth_data
-
-        # Path length (cumulative distance traveled)
-        dx = np.diff(gt[:, 1])
-        dy = np.diff(gt[:, 2])
-        path_length = np.sum(np.sqrt(dx**2 + dy**2))
-
-        # Duration (total time)
-        duration = gt[-1, 0] - gt[0, 0]
-
-        # Number of landmarks
-        n_landmarks = len(reader.landmark_locations)
-
-        # Direct distance (start to end)
-        distance = np.linalg.norm(gt[-1, 1:3] - gt[0, 1:3])
-
-        # Measurement density (measurements per meter)
-        n_measurements = len([m for m in reader.measurement_data if m[1] != -1])
-        m_density = n_measurements / path_length if path_length > 0 else 0
-
-        return {
-            "path_length": path_length,
-            "duration": duration,
-            "n_landmarks": n_landmarks,
-            "distance": distance,
-            "m_density": m_density,
-        }
-
-    def build_timeseries(data, cols):
-        """
-        Convert numpy array to pandas DataFrame with datetime index.
-
-        Args:
-            data: Numpy array with first column as Unix timestamp
-            cols: List of column names
-
-        Returns:
-            pd.DataFrame: Time-indexed DataFrame
-        """
-        timeseries = pd.DataFrame(data, columns=cols)
-        timeseries["stamp"] = pd.to_datetime(timeseries["stamp"], unit="s")
-        timeseries = timeseries.set_index("stamp")
-        return timeseries
-    return compute_ate, compute_dataset_metrics
 
 
 @app.cell(hide_code=True)
@@ -237,7 +146,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(dataset_selector, go, mo, reader, robot_selector):
     # TODO: Remove black edge from landmark markers
     # TODO: Extract some of this plotting logis out to an utils file, this might not be relevant for the students.
@@ -738,13 +647,13 @@ def _(mo):
 
 @app.cell
 def _(compute_ate, dr):
-    # Compute ATE for Dead Reckoning
-    ate_dr = compute_ate(dr.states, dr.groundtruth_data)
+    # Compute ATE for Dead Reckoning (using DataFrames from build_dataframes())
+    ate_dr = compute_ate(dr.states_df, dr.gt, verbose=True)
     ate_dr
     return (ate_dr,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(dr, go, mo):
     # Interactive trajectory comparison
     fig_dr_traj = go.Figure()
@@ -752,8 +661,8 @@ def _(dr, go, mo):
     # Dead Reckoning estimate
     fig_dr_traj.add_trace(
         go.Scatter(
-            x=dr.states["x"],
-            y=dr.states["y"],
+            x=dr.states_df["x"],
+            y=dr.states_df["y"],
             mode="lines",
             name="Dead Reckoning",
             line=dict(color="#d62728", width=2),
@@ -799,8 +708,8 @@ def _(dr, go, mo):
 
     fig_dr_traj.add_trace(
         go.Scatter(
-            x=[dr.states["x"].iloc[-1]],
-            y=[dr.states["y"].iloc[-1]],
+            x=[dr.states_df["x"].iloc[-1]],
+            y=[dr.states_df["y"].iloc[-1]],
             mode="markers",
             name="DR End",
             marker=dict(size=12, color="red", symbol="square"),
@@ -901,24 +810,25 @@ def _(
 ):
     # EKF noise matrices
     R = np.diagflat(np.array([0.10, 0.10, 1.0])) ** 2  # Process noise
-    Q = np.diagflat(np.array([100, 100, 1e16])) ** 2  # Measurement noise
+    Q = np.diagflat(np.array([500, 500, 1e16])) ** 2  # Measurement noise
 
     # Reactive EKF execution
     ekf = ExtendedKalmanFilter(
         dataset_path, robot_selector.value, end_frame_slider.value, R, Q, plot=False
     )
+    ekf.build_dataframes()
     return Q, R, ekf
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(compute_ate, ekf):
-    # Compute ATE for EKF
-    ate_ekf = compute_ate(ekf.states, ekf.groundtruth_data)
+    # Compute ATE for EKF (using DataFrames from build_dataframes())
+    ate_ekf = compute_ate(ekf.states_df, ekf.gt, verbose=True)
     ate_ekf
     return (ate_ekf,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(dr, ekf, go, mo):
     # Three-way trajectory comparison
     fig_comparison = go.Figure()
@@ -938,8 +848,8 @@ def _(dr, ekf, go, mo):
     # Dead Reckoning
     fig_comparison.add_trace(
         go.Scatter(
-            x=dr.states["x"],
-            y=dr.states["y"],
+            x=dr.states_df["x"],
+            y=dr.states_df["y"],
             mode="lines",
             name="Dead Reckoning",
             line=dict(color="#d62728", width=2),
@@ -950,8 +860,8 @@ def _(dr, ekf, go, mo):
     # EKF
     fig_comparison.add_trace(
         go.Scatter(
-            x=ekf.states[:, 1],
-            y=ekf.states[:, 2],
+            x=ekf.states_df["x"],
+            y=ekf.states_df["y"],
             mode="lines",
             name="EKF",
             line=dict(color="#ff7f0e", width=2),
@@ -1005,7 +915,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(ate_dr, ate_ekf, go, mo):
     # Bar chart comparing errors
     fig_ate = go.Figure()
@@ -1082,7 +992,7 @@ def _(
 
     # Limit to first 3 datasets and 3 robots for demo (adjust as needed)
     benchmark_datasets = datasets_list[:3]
-    benchmark_robots = ["Robot1", "Robot3", "Robot5"]
+    benchmark_robots = ["Robot2","Robot3", "Robot5"]
 
     for _ds_bench in benchmark_datasets:
         for _robot_bench in benchmark_robots:
@@ -1094,16 +1004,18 @@ def _(
                     _dataset_path_temp, _robot_bench, 5000, plot=False
                 )
                 _dr_temp.run()
+                _dr_temp.build_dataframes()
                 _ate_dr_temp = compute_ate(
-                    _dr_temp.states, _dr_temp.groundtruth_data
+                    _dr_temp.states_df, _dr_temp.gt, verbose=False
                 )
 
                 # Run EKF
                 _ekf_temp = ExtendedKalmanFilter(
                     _dataset_path_temp, _robot_bench, 5000, R, Q, plot=False
                 )
+                _ekf_temp.build_dataframes()
                 _ate_ekf_temp = compute_ate(
-                    _ekf_temp.states, _ekf_temp.groundtruth_data
+                    _ekf_temp.states_df, _ekf_temp.gt, verbose=False
                 )
 
                 # Store results

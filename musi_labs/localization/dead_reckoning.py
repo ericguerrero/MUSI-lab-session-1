@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from musi_labs.utils.data_utils import build_timeseries
+
 
 class DeadReckoning:
     """
@@ -581,7 +583,7 @@ class DeadReckoning:
         Generated DataFrames
         -------------------
         - **gt**: Ground truth poses with timestamp index
-        - **states**: Dead reckoning estimates with timestamp index
+        - **states_df**: Dead reckoning estimates with timestamp index
         - **measurements**: All sensor data (odometry + observations)
         - **motion**: Filtered odometry data only
         - **sensor**: Filtered landmark observations only
@@ -599,11 +601,12 @@ class DeadReckoning:
         - Facilitates data export and external analysis
         - Supports time-aligned comparison between algorithms
         - Optional feature for advanced users and research
+        - self.states remains as numpy array for consistent interface
         """
         self.gt = build_timeseries(
             self.groundtruth_data, cols=["stamp", "x", "y", "theta"]
         )
-        self.states = build_timeseries(self.states, cols=["stamp", "x", "y", "theta"])
+        self.states_df = build_timeseries(self.states, cols=["stamp", "x", "y", "theta"])
         self.measurements = build_timeseries(
             self.data, cols=["stamp", "type", "range_l", "bearing_l"]
         )
@@ -659,37 +662,6 @@ class DeadReckoning:
 
         self.sensor_gt["x_l"] = x_t + x * np.cos(theta_t) - y * np.sin(theta_t)
         self.sensor_gt["y_l"] = y_t + x * np.sin(theta_t) + y * np.cos(theta_t)
-
-
-def build_timeseries(data, cols):
-    """
-    Convert numpy array to pandas DataFrame with datetime indexing.
-
-    Utility function to create time-indexed DataFrames from MRCLAM data arrays.
-    Converts Unix timestamps to pandas datetime objects for time series analysis.
-
-    Parameters
-    ----------
-    data : ndarray
-        Input data array where first column contains timestamps.
-    cols : list of str
-        Column names for the DataFrame.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Time-indexed DataFrame with datetime index.
-
-    Notes
-    -----
-    - Assumes timestamps are in Unix epoch format (seconds since 1970)
-    - Sets timestamp column as DataFrame index
-    - Enables pandas time series operations and plotting
-    """
-    timeseries = pd.DataFrame(data, columns=cols)
-    timeseries["stamp"] = pd.to_datetime(timeseries["stamp"], unit="s")
-    timeseries = timeseries.set_index("stamp")
-    return timeseries
 
 
 def filter_static_landmarks(lm, barcodes):
