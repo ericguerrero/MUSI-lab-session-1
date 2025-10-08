@@ -10,19 +10,7 @@ Educational environment for learning mobile robot localization algorithms using 
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-After installation, restart your terminal or run:
-```bash
-source $HOME/.cargo/env
-```
-
 ### 2. Clone Repository
-
-```bash
-git clone git@github.com:ericguerrero/MUSI-lab-session-1.git
-cd MUSI-lab-session-1
-```
-
-or
 
 ```bash
 git clone https://github.com/ericguerrero/MUSI-lab-session-1.git
@@ -44,6 +32,31 @@ uv run marimo edit notebooks/session1_intro_and_basics.py
 ```
 
 Your browser will open with the interactive notebook at `http://localhost:2718`.
+
+## Updating the Repository
+
+If you've already cloned the repository and need to get the latest updates:
+
+```bash
+# Navigate to your repository
+cd MUSI-lab-session-1
+
+# Pull the latest changes
+git pull
+```
+
+If you have local changes and encounter conflicts:
+
+```bash
+# Stash your local changes
+git stash
+
+# Pull the latest updates
+git pull
+
+# Reapply your local changes
+git stash pop
+```
 
 ## Session 1 Contents
 
@@ -101,10 +114,7 @@ MUSI-lab-session-1/
 ## Troubleshooting
 
 ### UV not found after installation
-```bash
-# Add UV to PATH
-source $HOME/.cargo/env
-```
+Restart your terminal. If the issue persists, check the UV installation documentation: https://docs.astral.sh/uv/
 
 ### Marimo notebook won't open
 ```bash
