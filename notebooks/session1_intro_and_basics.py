@@ -89,9 +89,14 @@ def _(os, pd, sys):
     from musi_labs.localization.EKF import ExtendedKalmanFilter
     from musi_labs.utils.metrics import compute_ate, compute_dataset_metrics
     from musi_labs.visualization import marimo_helpers as mh
-    return DeadReckoning, ExtendedKalmanFilter, Reader, compute_ate, compute_dataset_metrics, mh
-
-
+    return (
+        DeadReckoning,
+        ExtendedKalmanFilter,
+        Reader,
+        compute_ate,
+        compute_dataset_metrics,
+        mh,
+    )
 
 
 @app.cell(hide_code=True)
@@ -348,83 +353,77 @@ def _(mo):
 
 @app.cell
 def _(go, make_subplots, metrics_df, mo):
-    # Create interactive Plotly subplots for metrics comparison
-    # TODO: Can hide some of the plotting logic?
+    # Create interactive Plotly subplots for metrics comparison using boxplots
     fig_metrics = make_subplots(
         rows=2,
         cols=2,
         subplot_titles=(
-            "Path Length by Dataset and Robot",
-            "Trajectory Duration by Dataset and Robot",
-            "Measurement Density by Dataset and Robot",
-            "Direct Distance (Start to End)",
+            "Path Length Distribution by Dataset",
+            "Trajectory Duration Distribution by Dataset",
+            "Measurement Density Distribution by Dataset",
+            "Direct Distance Distribution by Dataset",
         ),
         vertical_spacing=0.12,
         horizontal_spacing=0.10,
     )
 
-    robots_unique = metrics_df["robot"].unique()
-    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"]
+    datasets_unique = metrics_df["dataset"].unique()
 
-    # Add Path Length bars
-    for idx, robot in enumerate(robots_unique):
-        robot_data = metrics_df[metrics_df["robot"] == robot]
+    # Add Path Length boxplots
+    for dataset in datasets_unique:
+        dataset_data = metrics_df[metrics_df["dataset"] == dataset]
         fig_metrics.add_trace(
-            go.Bar(
-                x=robot_data["dataset"],
-                y=robot_data["path_length"],
-                name=robot,
-                marker_color=colors[idx],
-                showlegend=True,
-                hovertemplate=f"<b>{robot}</b><br>Path: %{{y:.2f}}m<extra></extra>",
+            go.Box(
+                y=dataset_data["path_length"],
+                name=dataset,
+                boxmean='sd',
+                marker_color="#1f77b4",
+                showlegend=False,
             ),
             row=1,
             col=1,
         )
 
-    # Add Duration bars
-    for idx, robot in enumerate(robots_unique):
-        robot_data = metrics_df[metrics_df["robot"] == robot]
+    # Add Duration boxplots
+    for dataset in datasets_unique:
+        dataset_data = metrics_df[metrics_df["dataset"] == dataset]
         fig_metrics.add_trace(
-            go.Bar(
-                x=robot_data["dataset"],
-                y=robot_data["duration"],
-                name=robot,
-                marker_color=colors[idx],
+            go.Box(
+                y=dataset_data["duration"],
+                name=dataset,
+                boxmean='sd',
+                marker_color="#ff7f0e",
                 showlegend=False,
-                hovertemplate=f"<b>{robot}</b><br>Duration: %{{y:.2f}}s<extra></extra>",
             ),
             row=1,
             col=2,
         )
 
-    # Add Measurement Density bars
-    for idx, robot in enumerate(robots_unique):
-        robot_data = metrics_df[metrics_df["robot"] == robot]
+    # Add Measurement Density boxplots
+    for dataset in datasets_unique:
+        dataset_data = metrics_df[metrics_df["dataset"] == dataset]
         fig_metrics.add_trace(
-            go.Bar(
-                x=robot_data["dataset"],
-                y=robot_data["m_density"],
-                name=robot,
-                marker_color=colors[idx],
+            go.Box(
+                y=dataset_data["m_density"],
+                name=dataset,
+                boxmean='sd',
+                marker_color="#2ca02c",
                 showlegend=False,
-                hovertemplate=f"<b>{robot}</b><br>Density: %{{y:.2f}}/m<extra></extra>",
             ),
             row=2,
             col=1,
         )
 
-    # Add Distance bars
-    for idx, robot in enumerate(robots_unique):
-        robot_data = metrics_df[metrics_df["robot"] == robot]
+    # Add Distance boxplots
+    for dataset in datasets_unique:
+        dataset_data = metrics_df[metrics_df["dataset"] == dataset]
         fig_metrics.add_trace(
-            go.Bar(
-                x=robot_data["dataset"],
-                y=robot_data["distance"],
-                name=robot,
-                marker_color=colors[idx],
+            go.Box(
+                y=dataset_data["distance"],
+                name=dataset,
+                boxmean='sd',
+                marker_color="#d62728",
                 showlegend=False,
-                hovertemplate=f"<b>{robot}</b><br>Distance: %{{y:.2f}}m<extra></extra>",
             ),
             row=2,
             col=2,
@@ -439,10 +438,8 @@ def _(go, make_subplots, metrics_df, mo):
     # Update layout
     fig_metrics.update_layout(
         height=700,
-        showlegend=True,
-        barmode="group",
+        showlegend=False,
         plot_bgcolor="white",
-        legend=dict(title="Robot", x=1.05, y=1, xanchor="left"),
     )
 
     mo.ui.plotly(fig_metrics)
