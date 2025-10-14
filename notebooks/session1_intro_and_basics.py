@@ -70,6 +70,7 @@ def _():
     import plotly.graph_objects as go
     import seaborn as sns
     from plotly.subplots import make_subplots
+
     return go, make_subplots, np, os, pd, plt, sns, sys
 
 
@@ -89,6 +90,7 @@ def _(os, pd, sys):
     from musi_labs.localization.EKF import ExtendedKalmanFilter
     from musi_labs.utils.metrics import compute_ate, compute_dataset_metrics
     from musi_labs.visualization import marimo_helpers as mh
+
     return (
         DeadReckoning,
         ExtendedKalmanFilter,
@@ -305,7 +307,7 @@ def _(Reader, compute_dataset_metrics, pd):
         "MRCLAM_Dataset4",
     ]
     robots_list = ["Robot1", "Robot2", "Robot3", "Robot4", "Robot5"]
-    #TODO: Parameterize the 5000
+    # TODO: Parameterize the 5000
 
     # Compute metrics for all combinations
     metrics_list = []
@@ -376,7 +378,7 @@ def _(go, make_subplots, metrics_df, mo):
             go.Box(
                 y=dataset_data["path_length"],
                 name=dataset,
-                boxmean='sd',
+                boxmean="sd",
                 marker_color="#1f77b4",
                 showlegend=False,
             ),
@@ -391,7 +393,7 @@ def _(go, make_subplots, metrics_df, mo):
             go.Box(
                 y=dataset_data["duration"],
                 name=dataset,
-                boxmean='sd',
+                boxmean="sd",
                 marker_color="#ff7f0e",
                 showlegend=False,
             ),
@@ -406,7 +408,7 @@ def _(go, make_subplots, metrics_df, mo):
             go.Box(
                 y=dataset_data["m_density"],
                 name=dataset,
-                boxmean='sd',
+                boxmean="sd",
                 marker_color="#2ca02c",
                 showlegend=False,
             ),
@@ -421,7 +423,7 @@ def _(go, make_subplots, metrics_df, mo):
             go.Box(
                 y=dataset_data["distance"],
                 name=dataset,
-                boxmean='sd',
+                boxmean="sd",
                 marker_color="#d62728",
                 showlegend=False,
             ),
@@ -627,16 +629,38 @@ def _(dr, go, make_subplots, mo):
 def _(mo):
     mo.md(
         r"""
-    ### TASK 2: Trajectory Comparison and ATE Computation
+    ### TASK 2: Trajectory Error Analysis - ATE and FTE
 
-    **Absolute Trajectory Error (ATE)** measures the Root Mean Square Error between
-    estimated and ground truth positions:
+    **Objective**: Compute two complementary metrics to evaluate Dead Reckoning performance.
+
+    #### Metric 1: Absolute Trajectory Error (ATE)
+
+    ATE measures the **average** position error over the entire trajectory:
 
     $$
     \text{ATE} = \sqrt{\frac{1}{N} \sum_{i=1}^N \|(x_i, y_i) - (x_i^{gt}, y_i^{gt})\|^2}
     $$
 
-    Lower ATE indicates better localization accuracy.
+    **Use case**: Evaluate path-following accuracy (e.g., lawn mowing, mapping)
+
+    #### Metric 2: Final Trajectory Error (FTE)
+
+    FTE measures the **end-point** position error:
+
+    $$
+    \text{FTE} = \|(x_N, y_N) - (x_N^{gt}, y_N^{gt})\|_2
+    $$
+
+    **Use case**: Evaluate goal-reaching accuracy (e.g., package delivery, docking)
+
+    #### Your Task:
+
+    1. **Compute ATE** for Dead Reckoning (use `compute_ate()` helper below)
+    2. **Compute FTE** for Dead Reckoning (implement yourself using numpy)
+    3. **Compare**: Which error is larger? What does this tell you about drift?
+
+    **Hint for FTE**: Extract the final position from `dr.states_df` and `dr.gt`,
+    then compute the Euclidean distance using `np.linalg.norm()`.
     """
     )
     return
@@ -737,6 +761,29 @@ def _(mo):
         r"""
     **Observation**: Dead reckoning drift increases over time due to error accumulation.
     The estimated trajectory diverges from ground truth, especially in long trajectories.
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ### Interpreting ATE vs FTE
+
+    **Common patterns**:
+    - **FTE > ATE**: Error accumulates over time (drift dominates) - typical for dead reckoning
+    - **FTE ≈ ATE**: Consistent error throughout trajectory
+    - **FTE < ATE**: Algorithm improves toward the end (rare without correction)
+
+    **Dead Reckoning typically shows FTE >> ATE** because:
+    - Small velocity errors compound over time
+    - No correction mechanism to bound the drift
+    - Final position can be very far from ground truth even if average error is moderate
+
+    **Example**: If ATE = 2m but FTE = 15m, the robot drifted significantly at the end
+    despite maintaining decent tracking for most of the trajectory.
     """
     )
     return
@@ -989,7 +1036,7 @@ def _(
 
     # Limit to first 3 datasets and 3 robots for demo (adjust as needed)
     benchmark_datasets = datasets_list[:3]
-    benchmark_robots = ["Robot2","Robot3", "Robot5"]
+    benchmark_robots = ["Robot2", "Robot3", "Robot5"]
 
     for _ds_bench in benchmark_datasets:
         for _robot_bench in benchmark_robots:
@@ -1137,6 +1184,7 @@ def _(mo):
 @app.cell
 def _():
     import marimo as mo
+
     return (mo,)
 
 
